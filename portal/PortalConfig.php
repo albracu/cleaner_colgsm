@@ -17,14 +17,14 @@ global $Portal_Path;
 
 // CRM URL without out trialing /
 // Example: http://yourdomain.com/crm
-$Server_Path = "";
+$Server_Path = "http://cleaner.localhost";
 
 // Portal URL without trialing /
 // Example: http://yourdomain.com/portal
-$Authenticate_Path = "";
+$Authenticate_Path = "http://cleaner.localhost/portal";
 
 //Give a temporary directory path which is used when we upload attachment
-$upload_dir = '/tmp';
+$upload_dir = 'c:\\temp';
 
 //These are the Proxy Settings parameters
 $proxy_host = ''; //Host Name of the Proxy

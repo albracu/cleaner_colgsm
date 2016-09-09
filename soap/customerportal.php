@@ -23,6 +23,7 @@ include_once 'includes/main/WebUI.php';
 
 require_once('libraries/nusoap/nusoap.php');
 require_once('modules/HelpDesk/HelpDesk.php');
+require_once('modules/SalesOrder/SalesOrder.php');
 require_once('modules/Emails/mail.php');
 require_once 'modules/Users/Users.php';
 
@@ -296,6 +297,24 @@ $server->register(
 	array('return'=>'tns:field_details_array'),
 	$NAMESPACE);
 
+$server->register(
+	'get_salesorder_detail',
+	array('id'=>'xsd:string','block'=>'xsd:string','contactid'=>'xsd:string','sessionid'=>'xsd:string'),
+	array('return'=>'tns:field_details_array'),
+	$NAMESPACE);
+	
+$server->register(
+	'get_product_price',
+	array('fieldname'=>'tns:common_array'),
+	array('return'=>'tns:common_array'),
+	$NAMESPACE);
+
+$server->register(
+	'create_salesorder',
+	array('fieldname'=>'tns:common_array'),
+	array('return'=>'tns:common_array'),
+	$NAMESPACE);
+	
 $server->register(
 	'get_modules',
 	array(),
@@ -1679,6 +1698,17 @@ function get_list_values($id,$module,$sessionid,$only_mine='true')
 		$params = array($entity_ids_list,$entity_ids_list);
 		$fields_list['Related To'] = 'entityid';
 	}
+	else if($module == 'SalesOrder')
+	{
+		$query ="select distinct vtiger_salesorder.*,vtiger_crmentity.smownerid,
+		case when vtiger_salesorder.contactid !=0 then vtiger_salesorder.contactid else vtiger_salesorder.accountid end as entityid,
+		case when vtiger_salesorder.contactid !=0 then 'Contacts' else 'Accounts' end as setype
+		from vtiger_salesorder
+		left join vtiger_crmentity on vtiger_crmentity.crmid=vtiger_salesorder.salesorderid
+		where vtiger_crmentity.deleted=0 and (accountid in (". generateQuestionMarks($entity_ids_list) .") or contactid in  (". generateQuestionMarks($entity_ids_list) ."))";
+		$params = array($entity_ids_list,$entity_ids_list);
+		$fields_list['Related To'] = 'entityid';
+	}
 	else if ($module == 'Documents')
 	{
 		$query ="select vtiger_notes.*, vtiger_crmentity.*, vtiger_senotesrel.crmid as entityid, '' as setype,vtiger_attachmentsfolder.foldername from vtiger_notes " .
@@ -1716,7 +1746,8 @@ function get_list_values($id,$module,$sessionid,$only_mine='true')
 		$params = array($entity_ids_list);
 		$fields_list['Related To'] = 'linktoaccountscontacts';
 	}
-
+	
+	
 	$res = $adb->pquery($query,$params);
 	$noofdata = $adb->num_rows($res);
 
@@ -1727,6 +1758,7 @@ function get_list_values($id,$module,$sessionid,$only_mine='true')
 		}
 	}
 
+	
 
 	for( $j= 0;$j < $noofdata; $j++)
 	{
@@ -1763,6 +1795,21 @@ function get_list_values($id,$module,$sessionid,$only_mine='true')
 					$fieldid = $adb->query_result($res,$j,'invoiceid');
 					$filename = $fieldid.'_Invoice.pdf';
 					$fieldvalue = '<a href="index.php?&module=Invoice&action=index&status=true&id='.$fieldid.'">'.$fieldvalue.'</a>';
+				}
+				if(in_array($fieldname, $fieldValuesToRound)){
+					$fieldvalue = round($fieldvalue, 2);
+				}
+				if($fieldname == 'total'){
+					$sym = getCurrencySymbol($res,$j,'currency_id');
+					$fieldvalue = $sym.$fieldvalue;
+				}
+			}
+			if($module == 'SalesOrder')
+			{
+				if($fieldname =='subject'){
+					$fieldid = $adb->query_result($res,$j,'salesorderid');
+					$filename = $fieldid.'_SalesOrder.pdf';
+					$fieldvalue = '<a href="index.php?&module=SalesOrder&action=index&status=true&id='.$fieldid.'">'.$fieldvalue.'</a>';
 				}
 				if(in_array($fieldname, $fieldValuesToRound)){
 					$fieldvalue = round($fieldvalue, 2);
@@ -2117,6 +2164,223 @@ function get_invoice_detail($id,$module,$customerid,$sessionid)
 	$log->debug("Entering customer portal function get_invoice_detail ..");
 	return $output;
 }
+
+
+function get_salesorder_detail($id,$module,$customerid,$sessionid)
+{
+	require_once('include/utils/UserInfoUtil.php');
+	require_once('include/utils/utils.php');
+
+	global $adb,$site_URL,$log,$current_user;
+	$log->debug("Entering customer portal function get_salesorder_detail $id - $module - $customerid - $sessionid");
+	$user = new Users();
+	$userid = getPortalUserid();
+	$current_user = $user->retrieveCurrentUserInfoFromFile($userid);
+
+	$isPermitted = check_permission($customerid,$module,$id);
+	if($isPermitted == false) {
+		return array("#NOT AUTHORIZED#");
+	}
+
+	if(!validateSession($customerid,$sessionid))
+	return null;
+
+	$fieldquery = "SELECT fieldname, columnname, fieldlabel,block,uitype FROM vtiger_field WHERE tabid = ? AND displaytype in (1,2,4) ORDER BY block,sequence";
+	$fieldres = $adb->pquery($fieldquery,array(getTabid($module)));
+	$nooffields = $adb->num_rows($fieldres);
+	$query = "select vtiger_salesorder.*,vtiger_crmentity.* ,vtiger_sobillads.*,vtiger_soshipads.*,
+		vtiger_salesordercf.* from vtiger_salesorder
+		inner join vtiger_crmentity on vtiger_crmentity.crmid = vtiger_salesorder.salesorderid
+		LEFT JOIN vtiger_sobillads ON vtiger_salesorder.salesorderid = vtiger_sobillads.sobilladdressid
+		LEFT JOIN vtiger_soshipads ON vtiger_salesorder.salesorderid = vtiger_soshipads.soshipaddressid
+		INNER JOIN vtiger_salesordercf ON vtiger_salesorder.salesorderid = vtiger_salesordercf.salesorderid
+		where vtiger_salesorder.salesorderid=?";
+	$res = $adb->pquery($query, array($id));
+
+	for($i=0;$i<$nooffields;$i++)
+	{
+		$fieldname = $adb->query_result($fieldres,$i,'columnname');
+		$fieldlabel = getTranslatedString($adb->query_result($fieldres,$i,'fieldlabel'));
+
+		$blockid = $adb->query_result($fieldres,$i,'block');
+		$blocknameQuery = "select blocklabel from vtiger_blocks where blockid = ?";
+		$blockPquery = $adb->pquery($blocknameQuery,array($blockid));
+		$blocklabel = $adb->query_result($blockPquery,0,'blocklabel');
+
+		$fieldper = getFieldVisibilityPermission($module,$current_user->id,$fieldname);
+		if($fieldper == '1'){
+			continue;
+		}
+
+		$fieldvalue = $adb->query_result($res,0,$fieldname);
+		if($fieldname == 'subject' && $fieldvalue !='')
+		{
+			$fieldid = $adb->query_result($res,0,'invoiceid');
+			//$fieldlabel = "(Download PDF)  ".$fieldlabel;
+			$fieldvalue = '<a href="index.php?downloadfile=true&module=SalesOrder&action=index&id='.$fieldid.'">'.$fieldvalue.'</a>';
+		}
+		if( $fieldname == 'salesorderid' || $fieldname == 'contactid' || $fieldname == 'accountid' || $fieldname == 'potentialid')
+		{
+			$crmid = $fieldvalue;
+			$Entitymodule = getSalesEntityType($crmid);
+			if ($crmid != '' && $Entitymodule != '') {
+				$fieldvalues = getEntityName($Entitymodule, array($crmid));
+				if($Entitymodule == 'Contacts')
+				$fieldvalue = '<a href="index.php?module=Contacts&action=index&id='.$crmid.'">'.$fieldvalues[$crmid].'</a>';
+				elseif($Entitymodule == 'Accounts')
+				$fieldvalue = '<a href="index.php?module=Accounts&action=index&id='.$crmid.'">'.$fieldvalues[$crmid].'</a>';
+				else
+				$fieldvalue = $fieldvalues[$crmid];
+			} else {
+				$fieldvalue = '';
+			}
+		}
+		if($fieldname == 'total'){
+			$sym = getCurrencySymbol($res,0,'currency_id');
+			$fieldvalue = $sym.$fieldvalue;
+		}
+		if($fieldname == 'smownerid'){
+			$fieldvalue = getOwnerName($fieldvalue);
+		}
+		$output[0][$module][$i]['fieldlabel'] = utf8_encode($fieldlabel);
+		$output[0][$module][$i]['fieldvalue'] = $fieldvalue;
+		$output[0][$module][$i]['blockname'] = utf8_encode(getTranslatedString($blocklabel,$module));
+	}
+	$focus = new SalesOrder();
+	$focus->id = $id;
+	$focus->retrieve_entity_info($focus->id,'SalesOrder');
+	$relatedProducts = getAssociatedProducts('SalesOrder',$focus);
+	
+	$preTaxTotal = (float)$relatedProducts[1]['final_details']['hdnSubTotal']
+					+ (float)$relatedProducts[1]['final_details']['shipping_handling_charge']
+					- (float)$relatedProducts[1]['final_details']['discountTotal_final'];
+
+	$relatedProducts[1]['final_details']['preTaxTotal'] = number_format($preTaxTotal, $numOfCurrencyDecimalPlaces,'.','');
+
+	//Updating Total After Discount
+	$totalAfterDiscount = (float)$relatedProducts[1]['final_details']['hdnSubTotal']
+							- (float)$relatedProducts[1]['final_details']['discountTotal_final'];
+
+	$relatedProducts[1]['final_details']['totalAfterDiscount'] = number_format($totalAfterDiscount, $numOfCurrencyDecimalPlaces,'.','');
+
+	//Updating Tax details
+	$taxtype = $relatedProducts[1]['final_details']['taxtype'];
+
+	for ($i=1;$i<=$productsCount; $i++) {
+		$product = $relatedProducts[$i];
+		$productId = $product['hdnProductId'.$i];
+		$totalAfterDiscount = $product['totalAfterDiscount'.$i];
+
+		if ($taxtype == 'individual') {
+			$taxDetails = getTaxDetailsForProduct($productId, 'all');
+			$taxCount = count($taxDetails);
+			$taxTotal = '0';
+
+			for($j=0; $j<$taxCount; $j++) {
+				$taxValue = $product['taxes'][$j]['percentage'];
+
+				$taxAmount = $totalAfterDiscount * $taxValue / 100;
+				$taxTotal = $taxTotal + $taxAmount;
+
+				$relatedProducts[$i]['taxes'][$j]['amount'] = $taxAmount;
+				$relatedProducts[$i]['taxTotal'.$i] = $taxTotal;
+			}
+			$netPrice = $totalAfterDiscount + $taxTotal;
+			$relatedProducts[$i]['netPrice'.$i] = $netPrice;
+		}
+	}
+	
+	$output[0][$module][0]['relatedproducts'] = $relatedProducts;
+		
+	$log->debug("Entering customer portal function get_invoice_detail ..");
+	return $output;
+}
+
+function get_product_price($input_array)
+{
+	global $adb,$log;
+	$adb->println("Entering customer portal function get_combo_values");
+	$adb->println($input_array);
+
+	$id = $input_array['id'];
+	$sessionid = $input_array['sessionid'];
+	$productid = $input_array['productid'];
+
+	if(!validateSession($id,$sessionid))
+		return null;
+
+	$output = Array();
+	$sql = "select  unit_price from vtiger_products inner join vtiger_crmentity on vtiger_crmentity.crmid=vtiger_products.productid where vtiger_crmentity.deleted=0 and vtiger_products.productid = ?";
+	$result = $adb->pquery($sql, array($productid));
+	$output[0] = $adb->query_result($result,0,'unit_price');
+	
+	return $output;
+
+}
+
+function create_salesorder($input_array)
+{
+	
+	global $adb,$log;
+	$adb->println("Entering customer portal function get_combo_values");
+	$adb->println($input_array);
+
+	$id = $input_array['id'];
+	$sessionid = $input_array['sessionid'];
+	
+	if(!validateSession($id,$sessionid))
+		return null;
+	
+	$accountResult = $adb->pquery('SELECT accountid FROM vtiger_contactdetails WHERE contactid = ?', array($id));
+	$accountId = $adb->query_result($accountResult, 0, 'accountid');
+	
+	$focus = new SalesOrder;
+	$focus->column_fields['subject'] = $input_array['fields']['subject'];
+	$focus->column_fields['description'] = $input_array['fields']['description'];
+	$focus->column_fields['sostatus'] = 'Created';
+	$focus->column_fields['account_id'] = $accountId;
+	$focus->column_fields['currency_id'] = 1;
+	
+	$focus->save('SalesOrder');
+	
+	savePartidas($input_array['fields']['products'],$focus->id);
+	
+	return array('id'=>$focus->id);
+}
+
+function savePartidas($partidas,$id) {
+	global $adb;
+	$i = 1;
+	
+	$sql = "DELETE FROM vtiger_inventoryproductrel WHERE id = ?";
+	$adb->pquery($sql,array($id));
+	$total = 0;
+	foreach($partidas as $partida) {
+		if ($partida['quantity'] > 0) {
+			$query ="insert into vtiger_inventoryproductrel(id, productid, sequence_no, quantity, listprice, discount_percent, discount_amount, comment, description, incrementondel, 
+															tax1, tax2, tax3) values(?,?,?,?,?,?,?,?,?,?,
+										?,?,?)";
+			$qparams = array($id,$partida['productid'],$i,$partida['quantity'],$partida['listprice'], $partida['discount_percent'], $partida['discount_amount'], $partida['comment'], $partida['description'],$partida['incrementondel'], 
+							$partida['tax1'], $partida['tax2'], $partida['tax3']);
+			$adb->pquery($query,$qparams);
+			$total+= $partida['quantity']*$partida['listprice'];
+		}
+		$i++;
+	} 
+	$hdnGrandTotal = $total;
+	$hdnSubTotal = $total;
+	$pre_tax_total = $total;
+	$txtAdjustment = 0;
+	$hdnDiscountAmount = 0;
+	$hdnDiscountPercent = 0;
+	$hdnS_H_Amount = 0;
+	$sql = "UPDATE vtiger_salesorder SET total = ?, subtotal = ?, adjustment = ?, discount_amount = ?, discount_percent = ?, s_h_amount = ?, pre_tax_total = ?
+				WHERE salesorderid = ?";
+	$adb->pquery($sql,array($hdnGrandTotal,$hdnSubTotal,$txtAdjustment,$hdnDiscountAmount,
+					$hdnDiscountPercent,$hdnS_H_Amount,$pre_tax_total,$id));
+}
+
+
 
 /* Function to get contactid's and account's product details'
  *
@@ -2684,6 +2948,19 @@ function check_permission($customerid, $module, $entityid) {
 								WHERE vtiger_crmentity.deleted=0
 									AND (vtiger_invoice.contactid IN (". generateQuestionMarks($allowed_contacts_and_accounts).") or vtiger_invoice.accountid IN (".generateQuestionMarks($allowed_contacts_and_accounts)."))
 									AND vtiger_invoice.invoiceid = ?";
+							$res = $adb->pquery($query, array($allowed_contacts_and_accounts, $allowed_contacts_and_accounts, $entityid));
+							if ($adb->num_rows($res) > 0) {
+								return true;
+							}
+							break;
+							
+		case 'SalesOrder'	:	$query = "SELECT vtiger_salesorder.salesorderid
+								FROM vtiger_salesorder
+								INNER JOIN vtiger_crmentity
+								ON vtiger_salesorder.salesorderid=vtiger_crmentity.crmid
+								WHERE vtiger_crmentity.deleted=0
+									AND (vtiger_salesorder.contactid IN (". generateQuestionMarks($allowed_contacts_and_accounts).") or vtiger_salesorder.accountid IN (".generateQuestionMarks($allowed_contacts_and_accounts)."))
+									AND vtiger_salesorder.salesorderid = ?";
 							$res = $adb->pquery($query, array($allowed_contacts_and_accounts, $allowed_contacts_and_accounts, $entityid));
 							if ($adb->num_rows($res) > 0) {
 								return true;

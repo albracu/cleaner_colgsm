@@ -98,6 +98,241 @@ function getblock_fieldlist($block_array)
 	return $list;
 }
 
+function getblock_products($data) {
+	
+	$list = '<div class="widget-box">
+				<div class="widget-header">
+					<h5 class="widget-title"><b>Productos</b></h5>
+				</div>
+				<div class="widget-main no-padding single-entity-view">';
+	$list.= '	
+	<table class="table table-hover">
+    <thead>
+    <th colspan="2">
+	Detalle del Elemento
+    </th>
+    <th colspan="1">
+	Moneda:
+    </th>
+    <th colspan="2">
+	Impuesto: '.getTranslatedString($data[0]['final_details']['taxtype']).'
+    </th>
+	</thead>
+	<tbody>
+    <tr>
+	<td>
+	    <span class="redColor">*</span><b>Producto</b>
+	</td>
+        <td>
+	    <b>Cantidad</b>
+	</td>
+        <td>
+	    <b>Precio Unitario</b>
+	</td>
+        <td>
+	    <b>Total</b>
+	</td>
+        <td>
+	    <b class="pull-right">Precio neto</b>
+	</td>
+    </tr>';
+	
+	$INDEX = 1;
+	foreach($data as $LINE_ITEM_DETAIL) {
+		$list.= '<td>
+		<div class="row-fluid">'.$LINE_ITEM_DETAIL["productName".$INDEX].'</div>';
+		if ($LINE_ITEM_DETAIL["productDeleted".$INDEX]) {
+			$list.= '
+			<div class="row-fluid redColor deletedItem">';
+				if (empty($LINE_ITEM_DETAIL["productName$INDEX"]))
+					$list.= getTranslatedString('LBL_THIS_LINE_ITEM_IS_DELETED_FROM_THE_SYSTEM_PLEASE_REMOVE_THIS_LINE_ITEM');
+				else
+					$list.= getTranslatedString('LBL_THIS').$LINE_ITEM_DETAIL["entityType".$INDEX].getTranslatedString('LBL_IS_DELETED_FROM_THE_SYSTEM_PLEASE_REMOVE_OR_REPLACE_THIS_ITEM');
+				
+			$list.= '</div>';
+		}
+		if (is_array($LINE_ITEM_DETAIL["subProductArray".$INDEX]) && count($LINE_ITEM_DETAIL["subProductArray".$INDEX]) > 0) {
+		    $list.= '<div>';
+			foreach ($LINE_ITEM_DETAIL["subProductArray".$INDEX] as $SUB_PRODUCT_NAME) {
+			    $list.= '<div>';
+				if (!empty($SUB_PRODUCT_NAME))
+					$list.= ' - &nbsp; <em>{$SUB_PRODUCT_NAME}</em>';
+				
+			    $list.= '</div>';
+			}
+		    $list.= '</div>';
+		}
+		if (!empty($LINE_ITEM_DETAIL["productName$INDEX"])) {
+			$list.= '<div>'.nl2br($LINE_ITEM_DETAIL["comment".$INDEX]).'</div>';
+		}
+		$list.= '
+	    </td>
+	    <td>'.$LINE_ITEM_DETAIL["qty".$INDEX].'
+	    </td>
+	    <td>
+		<div>'.$LINE_ITEM_DETAIL["listPrice".$INDEX].'
+		</div>
+		<div>';
+		if ($LINE_ITEM_DETAIL["discount_type".$INDEX] == 'amount') {
+			$DISCOUNT_INFO = getTranslatedString('LBL_DIRECT_AMOUNT_DISCOUNT').' = '.$LINE_ITEM_DETAIL["discountTotal".$INDEX];
+		} elseif ($LINE_ITEM_DETAIL["discount_type".$INDEX] == 'percentage') {
+			$DISCOUNT_INFO = $LINE_ITEM_DETAIL["discount_percent".$INDEX].' % '.getTranslatedString('LBL_OF').' '.$LINE_ITEM_DETAIL["productTotal".$INDEX].' = '.$LINE_ITEM_DETAIL["discountTotal".$INDEX];
+		}
+		$list.= '(-)&nbsp; <b><a href="javascript:void(0)" class="individualDiscount inventoryLineItemDetails" data-info="'.$DISCOUNT_INFO.'">'.getTranslatedString('LBL_DISCOUNT').'</a> : </b>
+		    </div>
+		    <div>
+			<b>'.getTranslatedString('LBL_TOTAL_AFTER_DISCOUNT').' :</b>
+		    </div>';
+		if ($data[0]['final_details']['taxtype'] != 'group') {
+			$INDIVIDUAL_TAX_INFO = getTranslatedString('LBL_TOTAL_AFTER_DISCOUNT').' = '.$LINE_ITEM_DETAIL["totalAfterDiscount".$INDEX]."\r\n";
+			if (is_array($LINE_ITEM_DETAIL["taxes"])) {
+				foreach ($LINE_ITEM_DETAIL["taxes"] as $tax_details)
+					$INDIVIDUAL_TAX_INFO.= $tax_details["taxlabel"].' : '.$tax_details["percentage"].' % = '.$tax_details["amount"]."\r\n";
+				$INDIVIDUAL_TAX_INFO.= getTranslatedString('LBL_TOTAL_TAX_AMOUNT').' = '.$LINE_ITEM_DETAIL["taxTotal".$INDEX];
+				$list.= '<div class="individualTaxContainer">';
+				$list.= '(+)&nbsp;<b><a href="javascript:void(0)" class="individualTax inventoryLineItemDetails" data-info="'.$INDIVIDUAL_TAX_INFO.'">'.getTranslatedString('LBL_TAX').' </a> : </b>
+				</div>';
+			}
+		}
+		$list.= '
+		</td>
+		<td>
+		    <div>'.$LINE_ITEM_DETAIL["productTotal".$INDEX].'
+		    </div>
+		    <div>'.$LINE_ITEM_DETAIL["discountTotal".$INDEX].'
+			</div>
+		    <div>'.$LINE_ITEM_DETAIL["totalAfterDiscount".$INDEX].'
+			</div>';
+			
+		if ($data[0]['final_details']['taxtype'] != 'group') {
+			$list.= '<div>'.$LINE_ITEM_DETAIL["taxTotal".$INDEX].'</div>';
+		}
+		$list.= '
+		</td>
+		<td>
+		    <span class="pull-right">'.$LINE_ITEM_DETAIL["netPrice".$INDEX].'</span>
+		</td>
+	    </tr>';
+		
+		$INDEX++;
+	}
+	$list.=  '</table>';
+	
+	$list.= '
+	<table class="table table-bordered">
+	    <tr>
+		<td width="83%">
+		    <div class="pull-right">
+			<b>'.getTranslatedString('LBL_ITEMS_TOTAL').'</b>
+		    </div>
+		</td>
+		<td>
+		    <span class="pull-right">
+			<b>'.$data[0]['final_details']["hdnSubTotal"].'</b>
+		    </span>
+		</td>
+	    </tr>
+	    <tr>
+		<td width="83%">
+		    <span class="pull-right">';
+	$FINAL_DISCOUNT_INFO = getTranslatedString('LBL_FINAL_DISCOUNT_AMOUNT').' = ';
+	if ($data[0]['final_details']['discount_type_final'] == 'percentage')
+		$FINAL_DISCOUNT_INFO.= $FINAL_DETAILS['discount_percentage_final'].' % '.getTranslatedString('LBL_OF').' '.$data[0]['final_details']['hdnSubTotal'].' = '.$data[0]['final_details']['discountTotal_final'];
+	$list.= '(-)&nbsp;<b><a class="inventoryLineItemDetails" href="javascript:void(0)" id="finalDiscount" data-info="'.$FINAL_DISCOUNT_INFO.'">'.getTranslatedString('LBL_DISCOUNT').'</a></b>
+		    </span>
+		</td>
+		<td>
+		    <span class="pull-right">'.$data[0]['final_details']['discountTotal_final'].'</span>
+		</td>
+	    </tr>
+		<tr>
+		<td width="83%">
+		    <span class="pull-right">
+			(+)&nbsp;<b>'.getTranslatedString('LBL_SHIPPING_AND_HANDLING_CHARGES').'</b>
+		    </span>
+		</td>
+		<td>
+		    <span class="pull-right">'.$data[0]['final_details']["shipping_handling_charge"].'</span>
+		</td>
+	    </tr>
+		<tr>
+		<td width="83%">
+		    <span class="pull-right">
+			<b>'.getTranslatedString('LBL_PRE_TAX_TOTAL').' </b>
+		    </span>
+		</td>
+		<td>
+		    <span class="pull-right">'.$data[0]['final_details']["preTaxTotal"].'</span>
+		</td>
+	    </tr>';
+	    if ($data[0]['final_details']['taxtype'] == 'group') {
+			$list.= '
+		<tr>
+		    <td width="83%">
+			<span class="pull-right">';
+				$GROUP_TAX_INFO = getTranslatedString('LBL_TOTAL_AFTER_DISCOUNT').' = '.$data[0]['final_details']["totalAfterDiscount"]."\r\n";
+				foreach ($data[0]['final_details']["taxes"] as $tax_details)
+					$GROUP_TAX_INFO.= $tax_details["taxlabel"].' : '.$tax_details["percentage"].' % = '.$tax_details["amount"]."\r\n";
+					
+				$GROUP_TAX_INFO.= "\r\n".getTranslatedString('LBL_TOTAL_TAX_AMOUNT').' = '.$data[0]['final_details']['tax_totalamount'];
+			    $list.= '(+)&nbsp;<b><a class="inventoryLineItemDetails" href="javascript:void(0)" id="finalTax"
+					   data-info="'.$GROUP_TAX_INFO.'">'.getTranslatedString('LBL_TAX').'</a></b>
+			</span>
+		    </td>
+		    <td>
+			<span class="pull-right">'.$data[0]['final_details']['tax_totalamount'].'
+			</span>
+		    </td>
+		</tr>';
+	    }
+		$list.= '<tr>    
+		<td width="83%">
+		    <span class="pull-right">';
+			$SHIPPING_HANDLING_TAX_INFO = getTranslatedString('LBL_SHIPPING_AND_HANDLING_CHARGES').' = '.$data[0]['final_details']["shipping_handling_charge"]."\r\n";
+			foreach ($data[0]['final_details']["sh_taxes"] as $tax_details)
+				$SHIPPING_HANDLING_TAX_INFO.= $tax_details["taxlabel"].' : '.$tax_details["percentage"].' % = '.$tax_details["amount"]."\r\n";
+			$SHIPPING_HANDLING_TAX_INFO.= "\r\n".getTranslatedString('LBL_TOTAL_TAX_AMOUNT')." = ".$data[0]['final_details']['shtax_totalamount'];
+			$list.= '(+)&nbsp;<b><a class="inventoryLineItemDetails" href="javascript:void(0)" id="shippingHandlingTax"
+				       data-info="'.$SHIPPING_HANDLING_TAX_INFO.'">'.getTranslatedString('LBL_TAX_FOR_SHIPPING_AND_HANDLING').' </a></b>
+		    </span>
+		</td>
+		<td>
+		    <span class="pull-right">'.$data[0]['final_details']["shtax_totalamount"].'
+		    </span>
+		</td>
+	    </tr>
+	    <tr>
+		<td width="83%">
+		    <span class="pull-right">
+			<b>'.getTranslatedString('LBL_ADJUSTMENT').'</b>
+		    </span>
+		</td>
+		<td>
+		    <span class="pull-right">'.
+			$data[0]['final_details']["adjustment"].'
+		    </span>
+		</td>
+	    </tr>
+	    <tr>
+		<td width="83%">
+		    <span class="pull-right">
+			<b>'.getTranslatedString('LBL_GRAND_TOTAL').'</b>
+		    </span>
+		</td>
+		<td>
+		    <span class="pull-right">'.
+			$data[0]['final_details']["grandTotal"].'
+		    </span>
+		</td>
+	    </tr>
+	</table>';
+	
+	$list.= '</div>
+			</div>';
+			
+	return $list;
+}
+
 function getTranslatedString($str)
 {
 	global $app_strings;

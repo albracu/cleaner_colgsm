@@ -23,6 +23,7 @@
         <script src="js/bootstrap.min.js" type="text/javascript"></script>
         <script src="js/Treeview.js" type="text/javascript"></script>
         <script src="js/Treecookie.js" type="text/javascript"></script>
+		<script src="js/plugins/chosen/chosen.jquery.js" type="text/javascript"></script>
         
 		<!--
 		<script src="//cdnjs.cloudflare.com/ajax/libs/raphael/2.1.0/raphael-min.js"></script>
@@ -50,7 +51,64 @@
 		<script src="js/AdminLTE/demo.js" type="text/javascript"></script>-->
 		
 		<script>
-			 jQuery("document").ready(function(){
+			var gHTML;
+			function onAddProduct() {
+				jQuery('#tableProducts tr:last').after('<tr>'+gHTML+'</tr>');
+				jQuery(".chosen-select").chosen();
+			}
+			
+			function deleteRow(ctrl) {
+				jQuery(ctrl).closest("tr").remove(); // remove row
+			}
+			
+			function getPrice(ctrl) {
+				productid = ctrl.value;
+				var lineItemRow = jQuery(ctrl).closest("tr");
+				var price = jQuery('.unitprice',lineItemRow);
+				var url = 'index.php?module=SalesOrder&action=getPrice&productid='+productid+'&ajax=true';
+				jQuery.ajax({
+					url: url,
+					type:'GET',
+					success: function(data){
+						data = JSON.parse(data);
+						price.val(parseFloat(data.price).toFixed(2));
+						updatePrices();
+					}
+				});
+			}
+			
+			function updatePrices() {
+				var qtys = jQuery('.qty');
+				jQuery.each(qtys,function(i,e) {
+					updatePrice(e);
+				});
+				updateTotales();
+			}
+			
+			function updatePrice(ctrl) {
+				var lineItemRow = jQuery(ctrl).closest("tr");
+				var price = jQuery('.unitprice',lineItemRow);
+				var qty = jQuery('.qty',lineItemRow);
+				var totalPrice = (parseFloat(price.val())|0)*(parseFloat(qty.val())|0);
+				totalPrice = parseFloat(totalPrice).toFixed(2);
+				jQuery('.spannetprice',lineItemRow).html(totalPrice);
+			}
+			
+			function updateTotales() {
+				var spannetprice = jQuery('.spannetprice');
+				var total = 0;
+				jQuery.each(spannetprice,function(i,e) {
+					var valor = jQuery(e).html();
+					total+= (parseFloat(valor)|0);
+				});
+				var totalGeneral = parseFloat(total).toFixed(2);
+				jQuery('.totalproducts').html(totalGeneral);
+			}
+			
+			jQuery("document").ready(function(){
+				gHTML = jQuery('#html0').html();
+				
+				jQuery(".chosen-select").chosen();
 				jQuery(".ticket_status li a").click(function(){
 				
 					$(".ticket_status_button:first-child").text($(this).text());
@@ -62,7 +120,7 @@
 					$("#ticket_form").find('input[name="fun"]').val("home");
 					
 				
-					if(jQuery(this).text() == 'All')
+					if(jQuery(this).text() == 'Todos')
 						ticket_status = '';
 					else 
 						ticket_status = jQuery(this).text();
@@ -118,6 +176,26 @@
 					window.location.href = "index.php?module=Invoice&action=index&showstatus="+$(".invoice_owner_button:first-child").text()+"&onlymine="+$(this).text();
 					
 				});
+				
+				jQuery(".salesorder_owner li a").click(function(){
+				
+					$(".salesorder_owner_button:first-child").text($(this).text());
+					
+					$("#salesorder_form").find('input[name="module"]').val("SalesOrder");
+					
+					$("#salesorder_form").find('input[name="action"]').val("index");
+					
+					$("#salesorder_form").find('input[name="fun"]').val("home");
+					
+					if(jQuery(this).text() == 'Todos')
+						salesorder_status = '';
+					else 
+						salesorder_status = 'Mine';
+					
+					window.location.href = "index.php?module=SalesOrder&action=index&showstatus="+$(".salesorder_owner_button:first-child").text()+"&onlymine="+salesorder_status;
+					
+				});
+
 
 				jQuery(".quote_owner li a").click(function(){
 					

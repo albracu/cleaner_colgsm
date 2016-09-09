@@ -2612,7 +2612,7 @@ CREATE TABLE `vtiger_customerportal_prefs` (
 
 LOCK TABLES `vtiger_customerportal_prefs` WRITE;
 /*!40000 ALTER TABLE `vtiger_customerportal_prefs` DISABLE KEYS */;
-INSERT INTO `vtiger_customerportal_prefs` VALUES (0,'defaultassignee',1),(0,'userid',1),(4,'showrelatedinfo',1),(6,'showrelatedinfo',1),(8,'showrelatedinfo',1),(13,'showrelatedinfo',1),(14,'showrelatedinfo',1),(15,'showrelatedinfo',1),(20,'showrelatedinfo',1),(23,'showrelatedinfo',1),(31,'showrelatedinfo',1),(38,'showrelatedinfo',1),(39,'showrelatedinfo',1),(40,'showrelatedinfo',1),(42,'showrelatedinfo',1);
+INSERT INTO `vtiger_customerportal_prefs` VALUES (0,'defaultassignee',1),(0,'userid',1),(4,'showrelatedinfo',1),(6,'showrelatedinfo',1),(8,'showrelatedinfo',1),(13,'showrelatedinfo',1),(14,'showrelatedinfo',1),(15,'showrelatedinfo',1),(20,'showrelatedinfo',1),(22,'showrelatedinfo',1),(23,'showrelatedinfo',1),(31,'showrelatedinfo',1),(38,'showrelatedinfo',1),(39,'showrelatedinfo',1),(40,'showrelatedinfo',1),(42,'showrelatedinfo',1);
 /*!40000 ALTER TABLE `vtiger_customerportal_prefs` ENABLE KEYS */;
 UNLOCK TABLES;
 
@@ -2637,7 +2637,7 @@ CREATE TABLE `vtiger_customerportal_tabs` (
 
 LOCK TABLES `vtiger_customerportal_tabs` WRITE;
 /*!40000 ALTER TABLE `vtiger_customerportal_tabs` DISABLE KEYS */;
-INSERT INTO `vtiger_customerportal_tabs` VALUES (4,1,9),(6,1,10),(8,1,8),(13,1,2),(14,1,6),(15,1,3),(20,1,5),(23,1,4),(31,1,7),(38,1,13),(39,1,12),(40,1,11),(42,1,14);
+INSERT INTO `vtiger_customerportal_tabs` VALUES (4,1,9),(6,1,10),(8,1,8),(13,1,2),(14,1,6),(15,1,3),(20,1,5),(22,1,1),(23,1,4),(31,1,7),(38,1,13),(39,1,12),(40,1,11),(42,1,14);
 /*!40000 ALTER TABLE `vtiger_customerportal_tabs` ENABLE KEYS */;
 UNLOCK TABLES;
 

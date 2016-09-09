@@ -18,6 +18,22 @@
  ********************************************************************************/
 
 $app_strings = Array(
+'SUBJECT' => 'Referencia',
+'ADD_PRODUCT' => 'Añadir Producto',
+'LBL_NEW_SALESORDER'=> 'Nuevo Pedido',
+'LBL_ITEMS_TOTAL'=>'Total Elementos',
+'LBL_SHIPPING_AND_HANDLING_CHARGES'=> 'Gastos Manipulación/Transporte',
+'LBL_PRE_TAX_TOTAL'=> 'Total antes de impuestos',
+'LBL_TAX'=> 'Impuesto',
+'LBL_TAX_FOR_SHIPPING_AND_HANDLING'=> 'Impuestos Manipulación/Transporte',
+'LBL_ADJUSTMENT'=> 'Ajuste',
+'LBL_GRAND_TOTAL'=> 'Total',
+'LBL_DISCOUNT'=> 'Descuento',
+'LBL_TOTAL_AFTER_DISCOUNT'=> 'Total Después Descuento',
+'group' => 'Grupo',
+'SalesOrder'=> 'Pedidos',
+'LBL_SALESORDER_INFORMATION'=> 'Pedidos',
+'LBL_NEW_SALESORDER' => 'Nuevo pedido',
 'customerportal'=>'Portal Cliente',
 'LBL_LOGIN'=>'Login',
 'LBL_USER_NAME'=>'Usuario:',
