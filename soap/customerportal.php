@@ -20,12 +20,14 @@ if (file_exists('config_override.php')) {
 include_once 'vtlib/Vtiger/Module.php';
 include_once 'vtlib/Vtiger/Functions.php';
 include_once 'includes/main/WebUI.php';
+require_once 'include/fields/DateTimeField.php';
 
 require_once('libraries/nusoap/nusoap.php');
 require_once('modules/HelpDesk/HelpDesk.php');
 require_once('modules/SalesOrder/SalesOrder.php');
 require_once('modules/Emails/mail.php');
 require_once 'modules/Users/Users.php';
+
 
 
 /** Configure language for server response translation */
@@ -296,12 +298,38 @@ $server->register(
 	array('id'=>'xsd:string','block'=>'xsd:string','contactid'=>'xsd:string','sessionid'=>'xsd:string'),
 	array('return'=>'tns:field_details_array'),
 	$NAMESPACE);
+	
+/*LCL
+	Funciones para la gestión de datos de Ordenes de Venta 
+	
+*/
+
+/*
+	Retorna los valores de los campos de una orden de venta dado su ID 
+	
+	*/
 
 $server->register(
 	'get_salesorder_detail',
 	array('id'=>'xsd:string','block'=>'xsd:string','contactid'=>'xsd:string','sessionid'=>'xsd:string'),
 	array('return'=>'tns:field_details_array'),
 	$NAMESPACE);
+	
+/*
+	Retorna los comentarios realizados en el CRM de una orden de venta
+	
+	*/
+	
+$server->register(
+	'get_so_comments',
+	array('fieldname'=>'tns:common_array'),
+	array('return'=>'tns:common_array'),
+	$NAMESPACE);
+	
+/*
+	Fin de funciones asociadas a las ordenes de venta
+	
+*/
 	
 $server->register(
 	'get_product_price',
@@ -1700,14 +1728,15 @@ function get_list_values($id,$module,$sessionid,$only_mine='true')
 	}
 	else if($module == 'SalesOrder')
 	{
-		$query ="select distinct vtiger_salesorder.*,vtiger_crmentity.smownerid,
+		$query ="select distinct vtiger_salesorder.*, vtiger_salesordercf.*,vtiger_crmentity.smownerid,
 		case when vtiger_salesorder.contactid !=0 then vtiger_salesorder.contactid else vtiger_salesorder.accountid end as entityid,
 		case when vtiger_salesorder.contactid !=0 then 'Contacts' else 'Accounts' end as setype
 		from vtiger_salesorder
 		left join vtiger_crmentity on vtiger_crmentity.crmid=vtiger_salesorder.salesorderid
+		left join vtiger_salesordercf using(salesorderid)
 		where vtiger_crmentity.deleted=0 and (accountid in (". generateQuestionMarks($entity_ids_list) .") or contactid in  (". generateQuestionMarks($entity_ids_list) ."))";
 		$params = array($entity_ids_list,$entity_ids_list);
-		$fields_list['Related To'] = 'entityid';
+//		$fields_list['Related To'] = 'entityid';
 	}
 	else if ($module == 'Documents')
 	{
@@ -2296,6 +2325,70 @@ function get_salesorder_detail($id,$module,$customerid,$sessionid)
 	return $output;
 }
 
+/**	Esta función retorna los comentarios asociados a una orden de venta
+ * @param array $input_array - arreglo que contiene los parametros de la función
+ * int $id - customer id
+ * string $sessionid - session id
+ * int $ticketid - salesorder id
+ * @return array $response - comentarios asociados
+*/
+function get_so_comments($input_array)
+{
+	global $adb,$log,$current_user;
+	$adb->println("Entering customer portal function get_so_comments");
+	$adb->println($input_array);
+
+	$id = $input_array['id'];
+	$sessionid = $input_array['sessionid'];
+	$salesorderid = (int) $input_array['salesorderid'];
+
+	if(!validateSession($id,$sessionid))
+		return null;
+
+	$userid = getPortalUserid();
+	$user = new Users();
+	$current_user = $user->retrieveCurrentUserInfoFromFile($userid);
+
+	$response = _getSOModComments($salesorderid);
+	
+	return $response;
+}
+
+/**
+ * Function added to get the Tickets Comments
+ * @global <PearDataBase> $adb
+ * @param <Integer> $ticketId
+ * @return <Array>
+ */
+function _getSOModComments($salesorderid,$relatedto = '') {
+	global $adb;
+	$sql = "SELECT * FROM vtiger_modcomments
+			INNER JOIN vtiger_crmentity ON vtiger_modcomments.modcommentsid = vtiger_crmentity.crmid AND deleted = 0
+			WHERE related_to = ? AND parent_comments = ? ORDER BY createdtime DESC";
+	$result = $adb->pquery($sql, array($salesorderid,$relatedto));
+	$rows = $adb->num_rows($result);
+	$output = array();
+	
+	for($i=0; $i<$rows; $i++) {
+		$customer = $adb->query_result($result, $i, 'customer');
+		$owner = $adb->query_result($result, $i, 'smownerid');
+
+		if(!empty($customer)) {
+			$emailResult = $adb->pquery('SELECT * FROM vtiger_portalinfo WHERE id = ?', array($customer));
+			$output[$i]['owner'] = $adb->query_result($emailResult, 0 ,'user_name');
+		} else {
+			$output[$i]['owner'] = getOwnerName($owner);
+		}
+
+		$output[$i]['comments'] = nl2br($adb->query_result($result, $i, 'commentcontent'));
+		$datetime = new DateTimeField($adb->query_result($result, $i, 'createdtime'));
+		$output[$i]['createdtime'] = $datetime->getDisplayDateTimeValue();
+		$output[$i]['relatedcomments'] = _getSOModComments($salesorderid,$adb->query_result($result, $i, 'modcommentsid'));
+	}
+	return $output;
+}
+
+
 function get_product_price($input_array)
 {
 	global $adb,$log;
@@ -2340,6 +2433,7 @@ function create_salesorder($input_array)
 	$focus->column_fields['sostatus'] = 'Created';
 	$focus->column_fields['account_id'] = $accountId;
 	$focus->column_fields['currency_id'] = 1;
+	$focus->column_fields['cf_755'] = date('Y-m-d');
 	
 	$focus->save('SalesOrder');
 	

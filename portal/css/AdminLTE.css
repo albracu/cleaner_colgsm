@@ -3542,3 +3542,50 @@ fieldset[disabled] .btn-vk.active {
 .content {
 	margin-top: 40px;
 }
+
+.box-comments {
+    background: #f7f7f7;
+}
+.box-footer {
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+    border-bottom-right-radius: 3px;
+    border-bottom-left-radius: 3px;
+    border-top: 1px solid #f4f4f4;
+    padding: 10px;
+    background-color: #fff;
+}
+
+.box-comments .comment-text {
+    margin-left: 40px;
+    color: #555;
+	padding-top:10px;
+}
+
+.box-comments .box-comment:first-of-type {
+    padding-top: 0;
+}
+.box-comments .box-comment {
+    padding: 8px 0;
+    border: 1px solid #eee;
+}
+
+.box-comments .comment-text {
+    margin-left: 40px;
+    color: #555;
+}
+
+.box-comments .username {
+    color: #444;
+    display: block;
+    font-weight: 600;
+}
+
+.img-sm, .box-comments .box-comment img, .user-block.user-block-sm img {
+    width: 30px !important;
+    height: 30px !important;
+}
+
+.img-sm, .img-md, .img-lg, .box-comments .box-comment img, .user-block.user-block-sm img {
+    float: left;
+}

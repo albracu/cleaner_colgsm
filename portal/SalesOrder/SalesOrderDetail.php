@@ -9,6 +9,36 @@
 *
  ********************************************************************************/
 
+ /* Funcion que formatea la salida de los comentarios */ 
+ function escribeComentario($commentresult,$prin = true) {
+	
+	if (count($commentresult) > 0)
+		$buffer = '
+		<div class="box-comment">
+				   
+		<div class="comment-text">
+			<img class="img-circle img-sm" src="images/DefaultUserIcon.png">
+			<span class="username">
+				'.$commentresult['owner'].'
+				<span class="text-muted pull-right" style="padding-right:10px">'.$commentresult['createdtime'].'</span>
+			  </span>'.$commentresult['comments'].'
+		</div>';
+		
+		if (count($commentresult['relatedcomments']) > 0) {
+			$buffer.= '<div class="box-comments" style="padding: 20px;background-color: #fff;">';
+			foreach($commentresult['relatedcomments'] as $comment)
+				$buffer.= escribeComentario($comment,$false);
+			$buffer.= '</div>';
+		}
+		$buffer.= '</div>';
+		
+		if ($prin)
+			$buffer.= '<br/>';
+		
+	return $buffer;
+}
+
+
 global $result;
 global $client;
 global $Server_Path;
@@ -46,6 +76,33 @@ if($id != '')
 	</div>';
 	if (isset($result[0][$module][0]['relatedproducts'])) {
 		echo getblock_products($result[0][$module][0]['relatedproducts']);
+	}
+	
+	$params = Array(Array('id'=>"$customerid", 'sessionid'=>"$sessionid", 'salesorderid' => "$id",));			
+	$commentresult = $client->call('get_so_comments', $params, $Server_Path, $Server_Path);
+	
+	$socount = count($result);
+	$commentscount = count($commentresult);
+	
+	if($commentscount >= 1 && is_array($commentresult)){
+		$list .=  '<div class="widget-box">
+					<div class = "widget-header">
+						<h5 class = "widget-title"><b>'.getTranslatedString('LBL_TICKET_COMMENTS').'</b></h5>
+					</div>
+					<div class = "widget-body">
+						<div class="widget-main no-padding single-entity-view">
+							<div style="width:auto;padding:12px;display:block;" id="tblLeadInformation">';
+	
+	
+		
+		$list .= '<div class="box-footer box-comments" style="width:80%">';
+				for($j=0;$j<$commentscount;$j++){
+					
+					$list .= escribeComentario($commentresult[$j]);
+				}
+				$list .= '</div>';
+				
+		echo $list;
 	}
 }
 ?>
